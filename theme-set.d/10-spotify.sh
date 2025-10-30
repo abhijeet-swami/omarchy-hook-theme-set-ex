@@ -33,7 +33,6 @@ html,
 body {
     font-family: "$(omarchy-font-current)" !important;
 }
-
 :root,
 .encore-dark-theme,
 .encore-base-set,
@@ -46,7 +45,6 @@ body {
     padding: 0.5rem;
     color: var(--spice-text);
 }
-
 .main-entityHeader-backgroundColor {
     display: none !important;
 }
@@ -56,7 +54,6 @@ body {
 .main-home-homeHeader {
     display: none !important;
 }
-
 .main-topBar-background,
 .main-home-filterChipsSection {
     background-color: var(--spice-main) !important;
@@ -65,10 +62,8 @@ EOF
 }
 
 change_spicetify_theme() {
-    config_file="$HOME/.config/spicetify/config-xpui.ini"
-
-    sed -i "s/^current_theme[[:space:]]*=.*/current_theme        = omarchy/" "$config_file"
-    sed -i "s/^color_scheme[[:space:]]*=.*/color_scheme           = base/" "$config_file"
+    spicetify config current_theme omarchy
+    spicetify config color_scheme base
 }
 
 create_dynamic_theme() {
@@ -108,7 +103,6 @@ button-active       = ${color0B}
 subtext             = ${color03}
 text                = ${color07}
 EOF
-
 }
 
 if ! command -v spicetify >/dev/null 2>&1; then
@@ -116,10 +110,31 @@ if ! command -v spicetify >/dev/null 2>&1; then
     exit 0
 fi
 
+spotify_was_running=false
+if pgrep -x "spotify" > /dev/null 2>&1; then
+    spotify_was_running=true
+fi
+
 create_spicetify_styling
 create_dynamic_theme
 change_spicetify_theme
 
-success "Spotify theme updated!"
+if [ "$spotify_was_running" = true ]; then
+       spicetify apply > /dev/null 2>&1 &
+else
+    setsid bash -c '
+        spicetify apply > /dev/null 2>&1 &
 
-spicetify apply > /dev/null 2>&1 & exit 0
+        for i in {1..50}; do
+            if pgrep -x "spotify" > /dev/null 2>&1; then
+                sleep 0.5
+                killall -9 spotify > /dev/null 2>&1
+                exit 0
+            fi
+            sleep 0.1
+        done
+    ' > /dev/null 2>&1 < /dev/null &
+fi
+
+success "Spotify theme updated!"
+exit
